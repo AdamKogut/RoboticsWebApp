@@ -8,9 +8,9 @@ namespace Backend.Repositories
   {
     private IServiceScopeFactory _scopeFactory;
     private ILogger<UserManagementRepository> _logger;
-    private object _userLock;
-    private object _teamLock;
-    private object _permissionLock;
+    private object _userLock = new object();
+    private object _teamLock = new object();
+    private object _permissionLock = new object();
 
     public UserManagementRepository(IServiceScopeFactory scopeFactory, ILogger<UserManagementRepository> logger)
     {
@@ -287,6 +287,88 @@ namespace Backend.Repositories
       finally
       {
         _logger.LogTrace("Exit UserManagementRepository.GetPermissions");
+      }
+    }
+
+    public bool AddUserToTeam(Guid teamId, Guid userId)
+    {
+      _logger.LogTrace("Enter UserManagementRepository.AddUserToTeam");
+      try
+      {
+        lock (_permissionLock) lock (_userLock) lock (_teamLock)
+            {
+              using (var scope = _scopeFactory.CreateScope())
+              {
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var user = db.Users.FirstOrDefault(x => x.Id == userId);
+                var team = db.Teams.FirstOrDefault(x => x.Id == teamId);
+                if (user == default || team == default)
+                {
+                  _logger.LogError($"Unable to add user to team because user or team do not exist");
+                  return false;
+                }
+                var permission = db.Permissions.FirstOrDefault(x => x.TeamId == teamId && x.UserId == userId);
+                if (permission == default)
+                {
+                  permission = new Permission
+                  {
+                    UserId = userId,
+                    TeamId = teamId,
+                    Permissions = 0,
+                    User = user,
+                    Team = team
+                  };
+                  db.Permissions.Add(permission);
+                }
+
+                return true;
+              }
+            }
+      }
+      catch (Exception e)
+      {
+        _logger.LogError($"Error occured when adding user to team. Error: {e}");
+        return false;
+      }
+      finally
+      {
+        _logger.LogTrace("Exit UserManagementRepository.AddUserToTeam");
+      }
+    }
+
+    public bool CheckPermission(Guid teamId, Guid userId, PermissionEnum permissionEnum)
+    {
+      _logger.LogTrace("Enter UserManagementRepository.CheckPermission");
+      try
+      {
+        lock (_permissionLock) lock (_userLock) lock (_teamLock)
+            {
+              using (var scope = _scopeFactory.CreateScope())
+              {
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var permission = db.Permissions.FirstOrDefault(x => x.TeamId == teamId && x.UserId == userId);
+                if (permission == default)
+                {
+                  return false;
+                }
+
+                if ((permission.Permissions & (1 << ((int)permissionEnum - 1))) == 1)
+                {
+                  return true;
+                }
+
+                return false;
+              }
+            }
+      }
+      catch (Exception e)
+      {
+        _logger.LogError($"Error occured when getting permissions for user. Error: {e}");
+        return false;
+      }
+      finally
+      {
+        _logger.LogTrace("Exit UserManagementRepository.CheckPermission");
       }
     }
   }
