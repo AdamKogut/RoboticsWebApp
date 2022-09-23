@@ -11,5 +11,11 @@ namespace Backend.Models
     public Team Team { get; set; }
     public Guid UserId { get; set; }
     public User User { get; set; }
+
+    public Permission()
+    {
+      Team = new Team();
+      User = new User();
+    }
   }
 }

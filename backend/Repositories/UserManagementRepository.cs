@@ -4,6 +4,8 @@ using Backend.Models;
 
 namespace Backend.Repositories
 {
+  //TODO: Force AddUser and AddTeam to error if user with same email exists
+  //TODO: Create UpdateUser and UpdateTeam
   public class UserManagementRepository : IUserManagementRepository
   {
     private IServiceScopeFactory _scopeFactory;
@@ -369,6 +371,66 @@ namespace Backend.Repositories
       finally
       {
         _logger.LogTrace("Exit UserManagementRepository.CheckPermission");
+      }
+    }
+
+    public bool DeletePermission(Guid teamId, Guid userId)
+    {
+      _logger.LogTrace("Enter UserManagementRepository.DeletePermission");
+      try
+      {
+        lock (_permissionLock) lock (_userLock) lock (_teamLock)
+            {
+              using (var scope = _scopeFactory.CreateScope())
+              {
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var permission = db.Permissions.FirstOrDefault(x => x.TeamId == teamId && x.UserId == userId);
+                if (permission == default)
+                {
+                  return false;
+                }
+
+                db.Permissions.Remove(permission);
+
+                return false;
+              }
+            }
+      }
+      catch (Exception e)
+      {
+        _logger.LogError($"Error occured when deleting permissions for user. Error: {e}");
+        return false;
+      }
+      finally
+      {
+        _logger.LogTrace("Exit UserManagementRepository.DeletePermission");
+      }
+    }
+
+    public List<User> GetUsersOnTeam(Guid teamId)
+    {
+      _logger.LogTrace("Enter UserManagementRepository.GetUsersOnTeam");
+      try
+      {
+        lock (_permissionLock) lock (_userLock) lock (_teamLock)
+            {
+              using (var scope = _scopeFactory.CreateScope())
+              {
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var permissions = db.Permissions.Where(x => x.TeamId == teamId);
+
+                return permissions.Select(x => x.User).ToList();
+              }
+            }
+      }
+      catch (Exception e)
+      {
+        _logger.LogError($"Error occured when deleting permissions for user. Error: {e}");
+        return new List<User>();
+      }
+      finally
+      {
+        _logger.LogTrace("Exit UserManagementRepository.GetUsersOnTeam");
       }
     }
   }

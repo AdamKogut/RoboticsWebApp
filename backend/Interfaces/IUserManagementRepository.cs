@@ -16,5 +16,7 @@ namespace Backend.Interfaces
     List<PermissionEnum> GetPermissions(Guid teamId, Guid userId);
     bool AddUserToTeam(Guid teamId, Guid userId);
     bool CheckPermission(Guid teamId, Guid userId, PermissionEnum permissionEnum);
+    bool DeletePermission(Guid teamId, Guid userId);
+    List<User> GetUsersOnTeam(Guid teamId);
   }
 }

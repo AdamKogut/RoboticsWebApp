@@ -8,5 +8,11 @@ namespace Backend.Models
     public Guid Id { get; set; }
     public string Name { get; set; }
     public List<Permission> Permissions { get; set; }
+
+    public Team()
+    {
+      Name = "";
+      Permissions = new List<Permission>();
+    }
   }
 }

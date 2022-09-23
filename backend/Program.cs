@@ -1,4 +1,6 @@
+using Backend.Interfaces;
 using Backend.Models;
+using Backend.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,6 +28,8 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddSingleton<IUserManagementRepository, UserManagementRepository>();
 
 IConfiguration configuration = builder.Configuration;
 var password = configuration["sqldb"];
