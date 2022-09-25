@@ -1,5 +1,5 @@
 using Backend.Enums;
-using Backend.Interfaces;
+using Backend.Interfaces.Repository;
 using Backend.Models;
 
 namespace Backend.Repositories
@@ -104,6 +104,42 @@ namespace Backend.Repositories
       }
     }
 
+    public bool ModifyUser(Guid userId, User newInfo)
+    {
+      _logger.LogTrace("Enter UserManagementRepository.ModifyUser");
+      try
+      {
+        lock (_userLock)
+        {
+          using (var scope = _scopeFactory.CreateScope())
+          {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var user = db.Users.FirstOrDefault(x => x.Id == userId);
+            if (user == null)
+            {
+              return false;
+            }
+
+            user.FirstName = newInfo.FirstName;
+            user.LastName = newInfo.LastName;
+            user.Email = newInfo.Email;
+
+            db.SaveChanges();
+          }
+        }
+        return true;
+      }
+      catch (Exception e)
+      {
+        _logger.LogError($"Error occured when modifying user. Error: {e}");
+        return false;
+      }
+      finally
+      {
+        _logger.LogTrace("Exit UserManagementRepository.ModifyUser");
+      }
+    }
+
     public bool AddTeam(Team team)
     {
       _logger.LogTrace("Enter UserManagementRepository.AddTeam");
@@ -156,6 +192,31 @@ namespace Backend.Repositories
       }
     }
 
+    public Team GetTeam(string name)
+    {
+      _logger.LogTrace("Enter UserManagementRepository.GetTeam");
+      try
+      {
+        lock (_teamLock)
+        {
+          using (var scope = _scopeFactory.CreateScope())
+          {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            return db.Teams.FirstOrDefault(x => x.Name.ToLower() == name.ToLower())!;
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        _logger.LogError($"Error occured when getting team. Error: {e}");
+        return null!;
+      }
+      finally
+      {
+        _logger.LogTrace("Exit UserManagementRepository.GetTeam");
+      }
+    }
+
     public bool DeleteTeam(Guid teamId)
     {
       _logger.LogTrace("Enter UserManagementRepository.DeleteTeam");
@@ -185,6 +246,39 @@ namespace Backend.Repositories
       finally
       {
         _logger.LogTrace("Exit UserManagementRepository.DeleteTeam");
+      }
+    }
+
+    public bool ModifyTeam(Guid teamId, Team newInfo)
+    {
+      _logger.LogTrace("Enter UserManagementRepository.ModifyTeam");
+      try
+      {
+        lock (_teamLock)
+        {
+          using (var scope = _scopeFactory.CreateScope())
+          {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var team = db.Teams.FirstOrDefault(x => x.Id == teamId);
+            if (team == null)
+            {
+              return false;
+            }
+
+            team.Name = newInfo.Name;
+            db.SaveChanges();
+          }
+        }
+        return true;
+      }
+      catch (Exception e)
+      {
+        _logger.LogError($"Error occured when modifing team. Error: {e}");
+        return false;
+      }
+      finally
+      {
+        _logger.LogTrace("Exit UserManagementRepository.ModifyTeam");
       }
     }
 
