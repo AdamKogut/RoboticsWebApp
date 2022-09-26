@@ -72,6 +72,31 @@ namespace Backend.Repositories
       }
     }
 
+    public User GetUser(string email)
+    {
+      _logger.LogTrace("Enter UserManagementRepository.GetUser");
+      try
+      {
+        lock (_userLock)
+        {
+          using (var scope = _scopeFactory.CreateScope())
+          {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            return db.Users.FirstOrDefault(x => x.Email.ToLower() == email.ToLower())!;
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        _logger.LogError($"Error occured when getting user. Error: {e}");
+        return null!;
+      }
+      finally
+      {
+        _logger.LogTrace("Exit UserManagementRepository.GetUser");
+      }
+    }
+
     public bool DeleteUser(Guid userId)
     {
       _logger.LogTrace("Enter UserManagementRepository.DeleteUser");

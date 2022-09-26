@@ -3,18 +3,24 @@ using Backend.Messages.UserManagement;
 using Backend.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace Backend.Controllers
 {
   [Route("api/v1/[controller]")]
   [ApiController]
+  [Authorize]
   public class UserController : Controller
   {
     private readonly ITeamService _teamService;
+    private readonly IUserService _userService;
 
-    public UserController(ITeamService teamService)
+    public UserController(ITeamService teamService, IUserService userService)
     {
       _teamService = teamService;
+      _userService = userService;
     }
 
     /// <summary>
@@ -22,9 +28,11 @@ namespace Backend.Controllers
     /// </summary>
     /// <returns></returns>
     [HttpPost("CreateUser")]
-    public ActionResult CreateUser(UserInfoMessage userInfoMessage)
+    public IActionResult CreateUser(UserInfoMessage userInfoMessage)
     {
-      return Ok();
+      var isSuccess = _userService.CreateUser(userInfoMessage.FirstName, userInfoMessage.LastName, userInfoMessage.Email,
+        userInfoMessage.Password, out var reason);
+      return Ok(reason);
     }
 
     /// <summary>
@@ -32,7 +40,7 @@ namespace Backend.Controllers
     /// </summary>
     /// <returns></returns>
     [HttpPost("CreateTeam")]
-    public ActionResult CreateTeam(NewTeamMessage teamInfoMessage)
+    public IActionResult CreateTeam(NewTeamMessage teamInfoMessage)
     {
       var isSuccess = _teamService.CreateTeam(teamInfoMessage.Name, teamInfoMessage.UserId, out var reason);
       return Ok(reason);
@@ -40,13 +48,21 @@ namespace Backend.Controllers
 
     /// <summary>
     ///   POST /api/v1/User/Login
+    ///   TODO: on frontend save JWT in localstorage, to logout remove it from that
     /// </summary>
     /// <returns></returns>
     [AllowAnonymous]
     [HttpPost("Login")]
-    public ActionResult Login(UserInfoMessage userInfoMessage)
+    public IActionResult Login(UserInfoMessage userInfoMessage)
     {
-      return Ok();
+      var result = _userService.Authenticate(userInfoMessage.Email, userInfoMessage.Password);
+
+      if (string.IsNullOrEmpty(result))
+      {
+        return Unauthorized();
+      }
+
+      return Ok(result);
     }
 
     /// <summary>
@@ -54,17 +70,7 @@ namespace Backend.Controllers
     /// </summary>
     /// <returns></returns>
     [HttpPost("ChangePassword")]
-    public ActionResult ChangePassword()
-    {
-      return Ok();
-    }
-
-    /// <summary>
-    ///   POST /api/v1/User/Logout
-    /// </summary>
-    /// <returns></returns>
-    [HttpPost("Logout")]
-    public ActionResult Logout()
+    public IActionResult ChangePassword()
     {
       return Ok();
     }
@@ -74,7 +80,7 @@ namespace Backend.Controllers
     /// </summary>
     /// <returns></returns>
     [HttpPost("UpdateUser")]
-    public ActionResult UpdateUser(UserInfoMessage userInfoMessage)
+    public IActionResult UpdateUser(UserInfoMessage userInfoMessage)
     {
       return Ok();
     }
@@ -84,7 +90,7 @@ namespace Backend.Controllers
     /// </summary>
     /// <returns></returns>
     [HttpPost("UpdateTeam")]
-    public ActionResult UpdateTeam(TeamInfoMessage teamInfoMessage)
+    public IActionResult UpdateTeam(TeamInfoMessage teamInfoMessage)
     {
       var team = new Team
       {
@@ -100,7 +106,7 @@ namespace Backend.Controllers
     /// </summary>
     /// <returns></returns>
     [HttpPost("InviteUserToTeam")]
-    public ActionResult InviteUserToTeam()
+    public IActionResult InviteUserToTeam()
     {
       return Ok(); //Sends invite over email
     }
@@ -110,7 +116,7 @@ namespace Backend.Controllers
     /// </summary>
     /// <returns></returns>
     [HttpPost("DeleteUser")]
-    public ActionResult DeleteUser(UserInfoMessage userMessage)
+    public IActionResult DeleteUser(UserInfoMessage userMessage)
     {
       return Ok();
     }
@@ -120,7 +126,7 @@ namespace Backend.Controllers
     /// </summary>
     /// <returns></returns>
     [HttpPost("DeleteTeam")]
-    public ActionResult DeleteTeam(TeamInfoMessage teamMessage)
+    public IActionResult DeleteTeam(TeamInfoMessage teamMessage)
     {
       var isSuccess = _teamService.DeleteTeam(teamMessage.TeamId, teamMessage.UserId, out var reason);
       return Ok(reason);
@@ -131,7 +137,7 @@ namespace Backend.Controllers
     /// </summary>
     /// <returns></returns>
     [HttpPost("AcceptTeamInvite")]
-    public ActionResult AcceptTeamInvite(PermissionsInfoMessage permissionsInfoMessage)
+    public IActionResult AcceptTeamInvite(PermissionsInfoMessage permissionsInfoMessage)
     {
       return Ok();
     }
@@ -141,7 +147,7 @@ namespace Backend.Controllers
     /// </summary>
     /// <returns></returns>
     [HttpPost("RemoveFromTeam")]
-    public ActionResult RemoveFromTeam(PermissionsInfoMessage permissionsInfoMessage)
+    public IActionResult RemoveFromTeam(PermissionsInfoMessage permissionsInfoMessage)
     {
       return Ok();
     }
@@ -151,7 +157,7 @@ namespace Backend.Controllers
     /// </summary>
     /// <returns></returns>
     [HttpPost("GetUsersOnTeam")]
-    public ActionResult GetUsersOnTeam(TeamInfoMessage teamMessage)
+    public IActionResult GetUsersOnTeam(TeamInfoMessage teamMessage)
     {
       return Ok();
     }
@@ -162,7 +168,7 @@ namespace Backend.Controllers
     /// <param name="permissionsInfoMessage"></param>
     /// <returns></returns>
     [HttpPost("ApplyPermissions")]
-    public ActionResult ApplyPermissions(PermissionsInfoMessage permissionsInfoMessage)
+    public IActionResult ApplyPermissions(PermissionsInfoMessage permissionsInfoMessage)
     {
       return Ok();
     }

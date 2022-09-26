@@ -8,6 +8,7 @@ namespace Backend.Interfaces.Repository
     bool AddUser(User user);
     bool DeleteUser(Guid userId);
     User GetUser(Guid userId);
+    User GetUser(string email);
     bool ModifyUser(Guid userId, User newInfo);
     bool AddTeam(Team team);
     bool DeleteTeam(Guid teamId);
