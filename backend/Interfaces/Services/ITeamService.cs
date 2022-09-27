@@ -6,7 +6,7 @@ namespace Backend.Interfaces.Services
   {
     bool CreateTeam(string name, Guid userId, out string reason);
     bool DeleteTeam(Guid teamId, Guid userId, out string reason);
-    bool InviteToTeam(Guid teamId, string email, out string reason);
+    bool InviteToTeam(Guid teamId, Guid userId, string email, out string reason);
     bool ModifyTeam(Guid teamId, Guid userId, Team newTeam, out string reason);
   }
 }

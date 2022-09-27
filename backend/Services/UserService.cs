@@ -28,15 +28,15 @@ namespace Backend.Services
       try
       {
         var matchingUser = _userManagementRepository.GetUser(email);
-
         if (matchingUser != null && PasswordUtils.VerifyHash(password, matchingUser.Password, email))
         {
+          matchingUser.NumberFailures = 0;
           var claims = new[] {
-                        new Claim(JwtRegisteredClaimNames.Sub, _configuration["Jwt:Subject"]),
-                        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                        new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.Ticks.ToString()),
-                        new Claim("Name", email)
-                    };
+                      new Claim(JwtRegisteredClaimNames.Sub, _configuration["Jwt:Subject"]),
+                      new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                      new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.Ticks.ToString()),
+                      new Claim("Name", email)
+                  };
 
           var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
           var signIn = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -46,6 +46,8 @@ namespace Backend.Services
               claims,
               expires: DateTime.UtcNow.AddMinutes(60),
               signingCredentials: signIn);
+
+          _userManagementRepository.ModifyUser(matchingUser.Id, matchingUser);
 
           return new JwtSecurityTokenHandler().WriteToken(token);
         }
@@ -94,13 +96,83 @@ namespace Backend.Services
       }
       catch (System.Exception e)
       {
-        _logger.LogError($"Unable to authenticate, error: {e}");
+        _logger.LogError($"Unable to create user, error: {e}");
         reason = "Unknown";
         return false;
       }
       finally
       {
         _logger.LogTrace($"Exit UserService.CreateUser");
+      }
+    }
+
+    public bool ChangePassword(Guid userId, string password, out string reason)
+    {
+      _logger.LogTrace($"Enter UserService.ChangePassword");
+      reason = string.Empty;
+      try
+      {
+        var user = _userManagementRepository.GetUser(userId);
+        if (!_userManagementRepository.ModifyUser(userId, user))
+        {
+          reason = "";
+          return false;
+        }
+
+        return true;
+      }
+      catch (System.Exception e)
+      {
+        _logger.LogError($"Unable to change password, error: {e}");
+        reason = "Unknown";
+        return false;
+      }
+      finally
+      {
+        _logger.LogTrace($"Exit UserService.ChangePassword");
+      }
+    }
+
+    public bool ModifyUser(Guid userId, string firstName, string lastName, string email, out string reason)
+    {
+      _logger.LogTrace($"Enter UserService.ModifyUser");
+      reason = string.Empty;
+      try
+      {
+        var user = _userManagementRepository.GetUser(userId);
+        if (user == null)
+        {
+          reason = "UserDoesntExist";
+          return false;
+        }
+
+        if (user.Email.ToLower() != email.ToLower() && _userManagementRepository.GetUser(user.Email) != null)
+        {
+          reason = "EmailAlreadyExists";
+          return false;
+        }
+
+        user.FirstName = firstName;
+        user.LastName = lastName;
+        user.Email = email;
+
+        if (!_userManagementRepository.ModifyUser(userId, user))
+        {
+          reason = "DatabaseError";
+          return false;
+        }
+
+        return true;
+      }
+      catch (System.Exception e)
+      {
+        _logger.LogError($"Unable to modify user, error: {e}");
+        reason = "Unknown";
+        return false;
+      }
+      finally
+      {
+        _logger.LogTrace($"Exit UserService.ModifyUser");
       }
     }
   }

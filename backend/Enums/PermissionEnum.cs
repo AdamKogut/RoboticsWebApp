@@ -8,5 +8,6 @@ namespace Backend.Enums
     AddMatchEntry,
     ReadMatchEntries,
     EditMatchEntries,
+    AllowInviteToTeam
   }
 }

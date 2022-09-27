@@ -148,6 +148,7 @@ namespace Backend.Repositories
             user.FirstName = newInfo.FirstName;
             user.LastName = newInfo.LastName;
             user.Email = newInfo.Email;
+            user.Password = newInfo.Password;
 
             db.SaveChanges();
           }

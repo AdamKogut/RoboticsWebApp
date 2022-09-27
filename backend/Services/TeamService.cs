@@ -100,8 +100,13 @@ namespace Backend.Services
       }
     }
 
-    public bool InviteToTeam(Guid teamId, string email, out string reason)
+    public bool InviteToTeam(Guid teamId, Guid userId, string email, out string reason)
     {
+      if (!_userManagementRepo.CheckPermission(teamId, userId, PermissionEnum.AllowInviteToTeam))
+      {
+        reason = "IncorrectPermissions";
+        return false;
+      }
       // TODO: set up sending email
       throw new NotImplementedException();
     }

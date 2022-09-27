@@ -3,9 +3,6 @@ using Backend.Messages.UserManagement;
 using Backend.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 
 namespace Backend.Controllers
 {
@@ -66,13 +63,24 @@ namespace Backend.Controllers
     }
 
     /// <summary>
+    ///   POST /api/v1/User/RequestChangePassword
+    /// </summary>
+    /// <returns></returns>
+    [HttpPost("RequestChangePassword")]
+    public IActionResult RequestChangePassword()
+    {
+      return Ok();
+    }
+
+    /// <summary>
     ///   POST /api/v1/User/ChangePassword
     /// </summary>
     /// <returns></returns>
     [HttpPost("ChangePassword")]
-    public IActionResult ChangePassword()
+    public IActionResult ChangePassword(UserInfoMessage userInfo)
     {
-      return Ok();
+      var isSuccess = _userService.ChangePassword(userInfo.UserId, userInfo.Password, out var reason);
+      return Ok(reason);
     }
 
     /// <summary>
@@ -82,7 +90,9 @@ namespace Backend.Controllers
     [HttpPost("UpdateUser")]
     public IActionResult UpdateUser(UserInfoMessage userInfoMessage)
     {
-      return Ok();
+      var isSuccess = _userService.ModifyUser(userInfoMessage.UserId, userInfoMessage.FirstName,
+        userInfoMessage.LastName, userInfoMessage.Email, out var reason);
+      return Ok(reason);
     }
 
     /// <summary>
@@ -106,9 +116,10 @@ namespace Backend.Controllers
     /// </summary>
     /// <returns></returns>
     [HttpPost("InviteUserToTeam")]
-    public IActionResult InviteUserToTeam()
+    public IActionResult InviteUserToTeam(InviteUserMessage inviteMessage)
     {
-      return Ok(); //Sends invite over email
+      var isSuccess = _teamService.InviteToTeam(inviteMessage.TeamId, inviteMessage.UserId, inviteMessage.Email, out var reason);
+      return Ok(reason);
     }
 
     /// <summary>
