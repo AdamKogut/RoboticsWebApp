@@ -35,7 +35,7 @@ namespace Backend.Services
                       new Claim(JwtRegisteredClaimNames.Sub, _configuration["Jwt:Subject"]),
                       new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                       new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.Ticks.ToString()),
-                      new Claim("Name", email)
+                      new Claim("UserId", matchingUser.Id.ToString())
                   };
 
           var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
@@ -173,6 +173,39 @@ namespace Backend.Services
       finally
       {
         _logger.LogTrace($"Exit UserService.ModifyUser");
+      }
+    }
+
+    public bool DeleteUser(Guid userId, out string reason)
+    {
+      _logger.LogTrace($"Enter UserService.DeleteUser");
+      reason = string.Empty;
+      try
+      {
+        var user = _userManagementRepository.GetUser(userId);
+        if (user == null)
+        {
+          reason = "UserDoesntExist";
+          return false;
+        }
+
+        if (!_userManagementRepository.DeleteUser(userId))
+        {
+          reason = "DatabaseError";
+          return false;
+        }
+
+        return true;
+      }
+      catch (System.Exception e)
+      {
+        _logger.LogError($"Unable to delete user, error: {e}");
+        reason = "Unknown";
+        return false;
+      }
+      finally
+      {
+        _logger.LogTrace($"Exit UserService.DeleteUser");
       }
     }
   }

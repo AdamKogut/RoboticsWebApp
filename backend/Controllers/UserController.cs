@@ -1,8 +1,11 @@
+using Backend.Enums;
 using Backend.Interfaces.Services;
 using Backend.Messages.UserManagement;
 using Backend.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace Backend.Controllers
 {
@@ -21,38 +24,151 @@ namespace Backend.Controllers
     }
 
     /// <summary>
-    ///   POST /api/v1/User/CreateUser
+    ///   POST /api/v1/User/AcceptTeamInvite
     /// </summary>
-    /// <returns></returns>
-    [HttpPost("CreateUser")]
-    public IActionResult CreateUser(UserInfoMessage userInfoMessage)
+    /// <param name="acceptInviteMessage"></param>
+    /// <returns>result string</returns>
+    [HttpPost("AcceptTeamInvite")]
+    public IActionResult AcceptTeamInvite(AcceptInviteMessage acceptInviteMessage)
     {
-      var isSuccess = _userService.CreateUser(userInfoMessage.FirstName, userInfoMessage.LastName, userInfoMessage.Email,
-        userInfoMessage.Password, out var reason);
-      return Ok(reason);
+      var userId = GetUserId();
+      return Ok(_teamService.AcceptInvite(acceptInviteMessage.TeamId, userId, acceptInviteMessage.Permissions));
+    }
+
+    /// <summary>
+    ///   POST /api/v1/User/ChangePassword
+    /// </summary>
+    /// <param name="changePasswordMessage"></param>
+    /// <returns>result string</returns>
+    [HttpPost("ChangePassword")]
+    public IActionResult ChangePassword(ChangePasswordMessage changePasswordMessage)
+    {
+      return Ok(_userService.ChangePassword(changePasswordMessage.Email));
+    }
+
+    /// <summary>
+    ///   GET /api/v1/User/CheckPermissions
+    /// </summary>
+    /// <param name="teamIdMessage"></param>
+    /// <returns>List of permissions</returns>
+    [HttpGet("CheckPermissions")]
+    public List<PermissionEnum> CheckPermissions(TeamIdMessage teamIdMessage)
+    {
+      var userId = GetUserId();
+      return _teamService.GetPermissions(userId, teamIdMessage.TeamId);
     }
 
     /// <summary>
     ///   POST /api/v1/User/CreateTeam
     /// </summary>
-    /// <returns></returns>
+    /// <param name="createTeamMessage"></param>
+    /// <returns>result string</returns>
     [HttpPost("CreateTeam")]
-    public IActionResult CreateTeam(NewTeamMessage teamInfoMessage)
+    public IActionResult CreateTeam(CreateTeamMessage createTeamMessage)
     {
-      var isSuccess = _teamService.CreateTeam(teamInfoMessage.Name, teamInfoMessage.UserId, out var reason);
-      return Ok(reason);
+      var userId = GetUserId();
+      return Ok(_teamService.CreateTeam(createTeamMessage.Name, userId));
+    }
+
+    /// <summary>
+    ///   POST /api/v1/User/CreateUser
+    /// </summary>
+    /// <param name="createUserMessage"></param>
+    /// <returns>result string</returns>
+    [HttpPost("CreateUser")]
+    public IActionResult CreateUser(CreateUserMessage createUserMessage)
+    {
+      return Ok(_userService.CreateUser(createUserMessage.FirstName, createUserMessage.LastName,
+        createUserMessage.Email, createUserMessage.Password));
+    }
+
+    /// <summary>
+    ///   POST /api/v1/User/DeleteTeam
+    /// </summary>
+    /// <param name="teamIdMessage"></param>
+    /// <returns>result string</returns>
+    [HttpPost("DeleteTeam")]
+    public IActionResult DeleteTeam(TeamIdMessage teamIdMessage)
+    {
+      var userId = GetUserId();
+      return Ok(_teamService.DeleteTeam(teamIdMessage.TeamId, userId));
+    }
+
+    /// <summary>
+    ///   POST /api/v1/User/DeleteUser
+    /// </summary>
+    /// <returns>result string</returns>
+    [HttpPost("DeleteUser")]
+    public IActionResult DeleteUser()
+    {
+      var userId = GetUserId();
+      return Ok(_userService.DeleteUser(userId));
+    }
+
+    /// <summary>
+    ///   POST /api/v1/User/GetInviteInfo
+    /// </summary>
+    /// <param name="getInviteInfoMessage"></param>
+    /// <returns>teamId, list of permissions, email</returns>
+    [HttpPost("GetInviteInfo")]
+    public GetInviteInfoResponse GetInviteInfo(GetInviteInfoMessage getInviteInfoMessage)
+    {
+      return _teamService.GetInviteInfo(getInviteInfoMessage.EncryptedString);
+    }
+
+    /// <summary>
+    ///   POST /api/v1/User/GetTeamInfo
+    /// </summary>
+    /// <param name="teamIdMessage"></param>
+    /// <returns>team name, list of users (if authorized)</returns>
+    [HttpPost("GetTeamInfo")]
+    public GetTeamInfoResponse GetTeamInfo(TeamIdMessage teamIdMessage)
+    {
+      var userId = GetUserId();
+      return _teamService.GetTeamInfo(userId, teamIdMessage.TeamId);
+    }
+
+    /// <summary>
+    ///   GET /api/v1/User/GetUserInfo
+    /// </summary>
+    /// <returns>firstname, lastname, email</returns>
+    [HttpGet("GetUserInfo")]
+    public GetUserResponse GetUserInfo()
+    {
+      var userId = GetUserId();
+      var user = _userService.GetUserInfo(userId);
+      return new GetUserResponse
+      {
+        FirstName = user.FirstName,
+        LastName = user.LastName,
+        Email = user.Email
+      };
+    }
+
+    /// <summary>
+    ///   POST /api/v1/User/InviteUserToTeam
+    /// </summary>
+    /// <param name="inviteMessage"></param>
+    /// <returns>result string</returns>
+    [HttpPost("InviteUserToTeam")]
+    public IActionResult InviteUserToTeam(InviteUserMessage inviteMessage)
+    {
+      var userId = GetUserId();
+      return Ok(_teamService.InviteToTeam(inviteMessage.TeamId, userId,
+        inviteMessage.Email, inviteMessage.Permissions));
     }
 
     /// <summary>
     ///   POST /api/v1/User/Login
     ///   TODO: on frontend save JWT in localstorage, to logout remove it from that
     /// </summary>
+    /// <param name="loginMessage"></param>
     /// <returns></returns>
     [AllowAnonymous]
     [HttpPost("Login")]
-    public IActionResult Login(UserInfoMessage userInfoMessage)
+    public IActionResult Login(LoginMessage loginMessage)
     {
-      var result = _userService.Authenticate(userInfoMessage.Email, userInfoMessage.Password);
+      var result = _userService.Authenticate(loginMessage.Email, loginMessage.Password);
 
       if (string.IsNullOrEmpty(result))
       {
@@ -63,125 +179,49 @@ namespace Backend.Controllers
     }
 
     /// <summary>
-    ///   POST /api/v1/User/RequestChangePassword
+    ///   POST /api/v1/User/UpdateTeam
     /// </summary>
-    /// <returns></returns>
-    [HttpPost("RequestChangePassword")]
-    public IActionResult RequestChangePassword()
+    /// <param name="updateTeamMessage"></param>
+    /// <returns>result string</returns>
+    [HttpPost("UpdateTeam")]
+    public IActionResult UpdateTeam(UpdateTeamMessage updateTeamMessage)
     {
-      return Ok();
-    }
-
-    /// <summary>
-    ///   POST /api/v1/User/ChangePassword
-    /// </summary>
-    /// <returns></returns>
-    [HttpPost("ChangePassword")]
-    public IActionResult ChangePassword(UserInfoMessage userInfo)
-    {
-      var isSuccess = _userService.ChangePassword(userInfo.UserId, userInfo.Password, out var reason);
-      return Ok(reason);
+      var userId = GetUserId();
+      return Ok(_teamService.ModifyTeam(updateTeamMessage.TeamId, userId, updateTeamMessage.Name));
     }
 
     /// <summary>
     ///   POST /api/v1/User/UpdateUser
     /// </summary>
-    /// <returns></returns>
+    /// <param name="userInfoMessage"></param>
+    /// <returns>result string</returns>
     [HttpPost("UpdateUser")]
     public IActionResult UpdateUser(UserInfoMessage userInfoMessage)
     {
-      var isSuccess = _userService.ModifyUser(userInfoMessage.UserId, userInfoMessage.FirstName,
-        userInfoMessage.LastName, userInfoMessage.Email, out var reason);
-      return Ok(reason);
+      var userId = GetUserId();
+      return Ok(_userService.ModifyUser(userId, userInfoMessage.FirstName,
+        userInfoMessage.LastName, userInfoMessage.Email, userInfoMessage.Password));
     }
 
     /// <summary>
-    ///   POST /api/v1/User/UpdateTeam
-    /// </summary>
-    /// <returns></returns>
-    [HttpPost("UpdateTeam")]
-    public IActionResult UpdateTeam(TeamInfoMessage teamInfoMessage)
-    {
-      var team = new Team
-      {
-        Id = teamInfoMessage.TeamId,
-        Name = teamInfoMessage.Name
-      };
-      var isSuccess = _teamService.ModifyTeam(teamInfoMessage.TeamId, teamInfoMessage.UserId, team, out var reason);
-      return Ok(reason);
-    }
-
-    /// <summary>
-    ///   POST /api/v1/User/InviteUserToTeam
-    /// </summary>
-    /// <returns></returns>
-    [HttpPost("InviteUserToTeam")]
-    public IActionResult InviteUserToTeam(InviteUserMessage inviteMessage)
-    {
-      var isSuccess = _teamService.InviteToTeam(inviteMessage.TeamId, inviteMessage.UserId, inviteMessage.Email, out var reason);
-      return Ok(reason);
-    }
-
-    /// <summary>
-    ///   POST /api/v1/User/DeleteUser
-    /// </summary>
-    /// <returns></returns>
-    [HttpPost("DeleteUser")]
-    public IActionResult DeleteUser(UserInfoMessage userMessage)
-    {
-      return Ok();
-    }
-
-    /// <summary>
-    ///   POST /api/v1/User/DeleteTeam
-    /// </summary>
-    /// <returns></returns>
-    [HttpPost("DeleteTeam")]
-    public IActionResult DeleteTeam(TeamInfoMessage teamMessage)
-    {
-      var isSuccess = _teamService.DeleteTeam(teamMessage.TeamId, teamMessage.UserId, out var reason);
-      return Ok(reason);
-    }
-
-    /// <summary>
-    ///   POST /api/v1/User/AcceptTeamInvite
-    /// </summary>
-    /// <returns></returns>
-    [HttpPost("AcceptTeamInvite")]
-    public IActionResult AcceptTeamInvite(PermissionsInfoMessage permissionsInfoMessage)
-    {
-      return Ok();
-    }
-
-    /// <summary>
-    ///   POST /api/v1/User/RemoveFromTeam
-    /// </summary>
-    /// <returns></returns>
-    [HttpPost("RemoveFromTeam")]
-    public IActionResult RemoveFromTeam(PermissionsInfoMessage permissionsInfoMessage)
-    {
-      return Ok();
-    }
-
-    /// <summary>
-    ///   POST /api/v1/User/GetUsersOnTeam
-    /// </summary>
-    /// <returns></returns>
-    [HttpPost("GetUsersOnTeam")]
-    public IActionResult GetUsersOnTeam(TeamInfoMessage teamMessage)
-    {
-      return Ok();
-    }
-
-    /// <summary>
-    ///   POST /api/v1/User/ApplyPermissions
+    ///   POST /api/v1/User/UpdateUserPermissions
     /// </summary>
     /// <param name="permissionsInfoMessage"></param>
-    /// <returns></returns>
-    [HttpPost("ApplyPermissions")]
-    public IActionResult ApplyPermissions(PermissionsInfoMessage permissionsInfoMessage)
+    /// <returns>result string</returns>
+    [HttpPost("UpdateUserPermissions")]
+    public IActionResult UpdateUserPermissions(PermissionsInfoMessage permissionsInfoMessage)
     {
-      return Ok();
+      var userId = GetUserId();
+      return Ok(_teamService.ApplyPermissions(permissionsInfoMessage.TeamId, userId, permissionsInfoMessage.Users));
+    }
+
+    private Guid GetUserId()
+    {
+      var token = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
+      var handler = new JwtSecurityTokenHandler();
+      var jwtSecurityToken = handler.ReadJwtToken(token);
+      var userId = jwtSecurityToken.Claims.First(claim => claim.Type == "UserId").Value;
+      return new Guid(userId);
     }
   }
 }

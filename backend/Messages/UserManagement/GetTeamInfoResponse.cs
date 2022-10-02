@@ -1,12 +1,13 @@
 namespace Backend.Messages.UserManagement
 {
-  public class PermissionsInfoMessage
+  public class GetTeamInfoResponse
   {
-    public Guid TeamId { get; set; }
+    public string Name { get; set; }
     public List<UserTeamObject> Users { get; set; }
 
-    public PermissionsInfoMessage()
+    public GetTeamInfoResponse()
     {
+      Name = string.Empty;
       Users = new List<UserTeamObject>();
     }
   }

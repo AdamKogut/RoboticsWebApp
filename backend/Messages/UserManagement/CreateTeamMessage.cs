@@ -1,11 +1,10 @@
 namespace Backend.Messages.UserManagement
 {
-  public class NewTeamMessage
+  public class CreateTeamMessage
   {
-    public Guid UserId { get; set; }
     public string Name { get; set; }
 
-    public NewTeamMessage()
+    public CreateTeamMessage()
     {
       Name = "";
     }

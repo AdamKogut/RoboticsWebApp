@@ -1,14 +1,13 @@
 namespace Backend.Messages.UserManagement
 {
-  public class TeamInfoMessage
+  public class UpdateTeamMessage
   {
     public Guid TeamId { get; set; }
-    public Guid UserId { get; set; }
     public string Name { get; set; }
 
-    public TeamInfoMessage()
+    public UpdateTeamMessage()
     {
-      Name = "";
+      Name = string.Empty;
     }
   }
 }

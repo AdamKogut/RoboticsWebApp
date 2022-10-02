@@ -2,15 +2,15 @@ using Backend.Enums;
 
 namespace Backend.Messages.UserManagement
 {
-  public class InviteUserMessage
+  public class GetInviteInfoResponse
   {
-    public Guid TeamId { get; set; }
     public string Email { get; set; }
     public List<PermissionEnum> Permissions { get; set; }
+    public Guid TeamId { get; set; }
 
-    public InviteUserMessage()
+    public GetInviteInfoResponse()
     {
-      Email = "";
+      Email = string.Empty;
       Permissions = new List<PermissionEnum>();
     }
   }

@@ -46,7 +46,8 @@ namespace Backend.Services
           return false;
         }
 
-        if (!_userManagementRepo.AddPermission(teamId, userId, PermissionEnum.Owner))
+        if (!_userManagementRepo.AddPermission(teamId, userId, PermissionEnum.Owner)
+          || !_userManagementRepo.AddPermission(teamId, userId, PermissionEnum.Admin))
         {
           reason = "DatabaseFailure";
           return false;
@@ -150,6 +151,134 @@ namespace Backend.Services
       {
         var result = string.IsNullOrEmpty(reason) ? "success" : $"failure, reason {reason}";
         _logger.LogTrace($"Exit TeamService.ModifyTeam, result {result}");
+      }
+    }
+
+    public bool RemoveFromTeam(Guid teamId, Guid requesterId, Guid removeUserId, out string reason)
+    {
+      _logger.LogTrace($"Enter TeamService.RemoveFromTeam");
+      reason = "";
+      try
+      {
+        if (!_userManagementRepo.CheckPermission(teamId, requesterId, PermissionEnum.Admin))
+        {
+          reason = "NotAdmin";
+          return false;
+        }
+
+        if (!_userManagementRepo.DeletePermission(teamId, removeUserId))
+        {
+          reason = "DatabaseFailure";
+          return false;
+        }
+
+        return true;
+      }
+      catch (System.Exception e)
+      {
+        reason = "Unknown";
+        _logger.LogError($"Failure TeamService.RemoveFromTeam, error {e}");
+        return false;
+      }
+      finally
+      {
+        var result = string.IsNullOrEmpty(reason) ? "success" : $"failure, reason {reason}";
+        _logger.LogTrace($"Exit TeamService.RemoveFromTeam, result {result}");
+      }
+    }
+
+    public List<User> GetUsersOnTeam(Guid teamId, Guid userId)
+    {
+      _logger.LogTrace($"Enter TeamService.GetUsers");
+      try
+      {
+        if (!_userManagementRepo.CheckPermission(teamId, userId, PermissionEnum.Admin))
+        {
+          return new List<User>();
+        }
+
+        return _userManagementRepo.GetUsersOnTeam(teamId);
+      }
+      catch (System.Exception e)
+      {
+        _logger.LogError($"Failure TeamService.GetUsers, error {e}");
+        return new List<User>();
+      }
+      finally
+      {
+        _logger.LogTrace($"Exit TeamService.GetUsers");
+      }
+    }
+
+    public bool ApplyPermission(Guid teamId, Guid requesterId, Guid userId, List<PermissionEnum> permissions, out string reason)
+    {
+      _logger.LogTrace($"Enter TeamService.ApplyPermission");
+      reason = "";
+      try
+      {
+        if (!_userManagementRepo.CheckPermission(teamId, requesterId, PermissionEnum.Admin))
+        {
+          reason = "NotAdmin";
+          return false;
+        }
+
+        foreach (var permission in permissions)
+        {
+          if (!_userManagementRepo.AddPermission(teamId, userId, permission))
+          {
+            reason = "DatabaseFailure";
+            return false;
+          }
+        }
+
+        return true;
+      }
+      catch (System.Exception e)
+      {
+        reason = "Unknown";
+        _logger.LogError($"Failure TeamService.ApplyPermission, error {e}");
+        return false;
+      }
+      finally
+      {
+        var result = string.IsNullOrEmpty(reason) ? "success" : $"failure, reason {reason}";
+        _logger.LogTrace($"Exit TeamService.ApplyPermission, result {result}");
+      }
+    }
+
+    public bool AcceptInvite(Guid teamId, Guid userId, List<PermissionEnum> permissions, out string reason)
+    {
+      _logger.LogTrace($"Enter TeamService.AcceptInvite");
+      reason = "";
+      try
+      {
+        if (!_userManagementRepo.AddUserToTeam(teamId, userId))
+        {
+          reason = "DatabaseFailure";
+          return false;
+        }
+
+        foreach (var permission in permissions)
+        {
+          if (!_userManagementRepo.AddPermission(teamId, userId, permission))
+          {
+            reason = "DatabaseFailure";
+            return false;
+          }
+        }
+
+        return true;
+      }
+      catch (System.Exception e)
+      {
+        reason = "Unknown";
+        _logger.LogError($"Failure TeamService.AcceptInvite, error {e}");
+        return false;
+      }
+      finally
+      {
+        var result = string.IsNullOrEmpty(reason) ? "success" : $"failure, reason {reason}";
+        _logger.LogTrace($"Exit TeamService.AcceptInvite, result {result}");
       }
     }
   }

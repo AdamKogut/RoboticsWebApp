@@ -1,12 +1,20 @@
+using Backend.Enums;
+using Backend.Messages.UserManagement;
 using Backend.Models;
 
 namespace Backend.Interfaces.Services
 {
   public interface ITeamService
   {
-    bool CreateTeam(string name, Guid userId, out string reason);
-    bool DeleteTeam(Guid teamId, Guid userId, out string reason);
-    bool InviteToTeam(Guid teamId, Guid userId, string email, out string reason);
-    bool ModifyTeam(Guid teamId, Guid userId, Team newTeam, out string reason);
+    string CreateTeam(string name, Guid userId);
+    string DeleteTeam(Guid teamId, Guid userId);
+    string InviteToTeam(Guid teamId, Guid userId, string email, List<PermissionEnum> permissions);
+    string ModifyTeam(Guid teamId, Guid userId, string name);
+    List<User> GetUsersOnTeam(Guid teamId, Guid userId);
+    string ApplyPermissions(Guid teamId, Guid userId, List<UserTeamObject> permissions);
+    string AcceptInvite(Guid teamId, Guid userId, List<PermissionEnum> permissions);
+    List<PermissionEnum> GetPermissions(Guid userId, Guid teamId);
+    GetInviteInfoResponse GetInviteInfo(string encryptedString);
+    GetTeamInfoResponse GetTeamInfo(Guid userId, Guid teamId);
   }
 }
