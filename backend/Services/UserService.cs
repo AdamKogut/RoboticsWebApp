@@ -7,6 +7,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
+using static Backend.Constants.ControllerFailureConstants;
+
 namespace Backend.Services
 {
   public class UserService : IUserService
@@ -31,25 +33,51 @@ namespace Backend.Services
         if (matchingUser != null && PasswordUtils.VerifyHash(password, matchingUser.Password, email))
         {
           matchingUser.NumberFailures = 0;
-          var claims = new[] {
-                      new Claim(JwtRegisteredClaimNames.Sub, _configuration["Jwt:Subject"]),
-                      new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                      new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.Ticks.ToString()),
-                      new Claim("UserId", matchingUser.Id.ToString())
-                  };
 
-          var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-          var signIn = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-          var token = new JwtSecurityToken(
-              _configuration["Jwt:Issuer"],
-              _configuration["Jwt:Audience"],
-              claims,
-              expires: DateTime.UtcNow.AddMinutes(60),
-              signingCredentials: signIn);
+          var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]);
+          var tokenDescriptor = new SecurityTokenDescriptor
+          {
+            Subject = new ClaimsIdentity(new[]
+              {
+                new Claim("Id", Guid.NewGuid().ToString()),
+                new Claim(JwtRegisteredClaimNames.Sub, matchingUser.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Email, matchingUser.Email),
+                new Claim(JwtRegisteredClaimNames.Jti,
+                Guid.NewGuid().ToString())
+             }),
+            Expires = DateTime.UtcNow.AddMinutes(5),
+            Issuer = _configuration["Jwt:Issuer"],
+            Audience = _configuration["Jwt:Audience"],
+            SigningCredentials = new SigningCredentials
+              (new SymmetricSecurityKey(key),
+              SecurityAlgorithms.HmacSha512Signature)
+          };
+          var tokenHandler = new JwtSecurityTokenHandler();
+          var token = tokenHandler.CreateToken(tokenDescriptor);
+          var jwtToken = tokenHandler.WriteToken(token);
+          var stringToken = tokenHandler.WriteToken(token);
+
+
+          // var claims = new[] {
+          //             new Claim(JwtRegisteredClaimNames.Sub, _configuration["Jwt:Subject"]),
+          //             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+          //             new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.Ticks.ToString()),
+          //             new Claim("UserId", matchingUser.Id.ToString())
+          //         };
+
+          // var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+          // var signIn = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+          // var token = new JwtSecurityToken(
+          //     _configuration["Jwt:Issuer"],
+          //     _configuration["Jwt:Audience"],
+          //     claims,
+          //     expires: DateTime.UtcNow.AddMinutes(60),
+          //     signingCredentials: signIn);
 
           _userManagementRepository.ModifyUser(matchingUser.Id, matchingUser);
+          return stringToken;
 
-          return new JwtSecurityTokenHandler().WriteToken(token);
+          // return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
         return string.Empty;
@@ -65,16 +93,40 @@ namespace Backend.Services
       }
     }
 
-    public bool CreateUser(string firstName, string lastName, string email, string password, out string reason)
+    public string ChangePassword(string email)
+    {
+      _logger.LogTrace($"Enter UserService.ChangePassword");
+      try
+      {
+        var user = _userManagementRepository.GetUser(email);
+        if (user == default)
+        {
+          return Success;
+        }
+
+        // TODO: Send email
+
+        return Success;
+      }
+      catch (System.Exception e)
+      {
+        _logger.LogError($"Unable to change password, error: {e}");
+        return Unknown;
+      }
+      finally
+      {
+        _logger.LogTrace($"Exit UserService.ChangePassword");
+      }
+    }
+
+    public string CreateUser(string firstName, string lastName, string email, string password)
     {
       _logger.LogTrace($"Enter UserService.CreateUser");
-      reason = string.Empty;
       try
       {
         if (_userManagementRepository.GetUser(email) != null)
         {
-          reason = "UserAlreadyExists";
-          return false;
+          return UserAlreadyExists;
         }
 
         var user = new User
@@ -88,17 +140,15 @@ namespace Backend.Services
         };
         if (!_userManagementRepository.AddUser(user))
         {
-          reason = "";
-          return false;
+          return DatabaseFailure;
         }
 
-        return true;
+        return Success;
       }
       catch (System.Exception e)
       {
         _logger.LogError($"Unable to create user, error: {e}");
-        reason = "Unknown";
-        return false;
+        return Success;
       }
       finally
       {
@@ -106,106 +156,92 @@ namespace Backend.Services
       }
     }
 
-    public bool ChangePassword(Guid userId, string password, out string reason)
+    public string DeleteUser(Guid userId)
     {
-      _logger.LogTrace($"Enter UserService.ChangePassword");
-      reason = string.Empty;
-      try
-      {
-        var user = _userManagementRepository.GetUser(userId);
-        if (!_userManagementRepository.ModifyUser(userId, user))
-        {
-          reason = "";
-          return false;
-        }
-
-        return true;
-      }
-      catch (System.Exception e)
-      {
-        _logger.LogError($"Unable to change password, error: {e}");
-        reason = "Unknown";
-        return false;
-      }
-      finally
-      {
-        _logger.LogTrace($"Exit UserService.ChangePassword");
-      }
-    }
-
-    public bool ModifyUser(Guid userId, string firstName, string lastName, string email, out string reason)
-    {
-      _logger.LogTrace($"Enter UserService.ModifyUser");
-      reason = string.Empty;
+      _logger.LogTrace($"Enter UserService.DeleteUser");
       try
       {
         var user = _userManagementRepository.GetUser(userId);
         if (user == null)
         {
-          reason = "UserDoesntExist";
-          return false;
+          return Unknown;
+        }
+
+        if (!_userManagementRepository.DeleteUser(userId))
+        {
+          return DatabaseFailure;
+        }
+
+        return Success;
+      }
+      catch (System.Exception e)
+      {
+        _logger.LogError($"Unable to delete user, error: {e}");
+        return Unknown;
+      }
+      finally
+      {
+        _logger.LogTrace($"Exit UserService.DeleteUser");
+      }
+    }
+
+    public User GetUserInfo(Guid userInfo)
+    {
+      _logger.LogTrace($"Enter UserService.GetUserInfo");
+      try
+      {
+        return _userManagementRepository.GetUser(userInfo);
+      }
+      catch (System.Exception e)
+      {
+        _logger.LogError($"Unable to modify user, error: {e}");
+        return new User();
+      }
+      finally
+      {
+        _logger.LogTrace($"Exit UserService.GetUserInfo");
+      }
+    }
+
+    public string ModifyUser(Guid userId, string firstName, string lastName, string email, string password = "")
+    {
+      _logger.LogTrace($"Enter UserService.ModifyUser");
+      try
+      {
+        var user = _userManagementRepository.GetUser(userId);
+        if (user == null)
+        {
+          return Unknown;
         }
 
         if (user.Email.ToLower() != email.ToLower() && _userManagementRepository.GetUser(user.Email) != null)
         {
-          reason = "EmailAlreadyExists";
-          return false;
+          return EmailAlreadyExists;
         }
 
         user.FirstName = firstName;
         user.LastName = lastName;
         user.Email = email;
+        if (password != string.Empty)
+        {
+          user.Password = PasswordUtils.GenerateHash(password, email);
+        }
 
         if (!_userManagementRepository.ModifyUser(userId, user))
         {
-          reason = "DatabaseError";
-          return false;
+          return DatabaseFailure;
         }
 
-        return true;
+        return Success;
       }
       catch (System.Exception e)
       {
         _logger.LogError($"Unable to modify user, error: {e}");
-        reason = "Unknown";
-        return false;
+        return Unknown;
       }
       finally
       {
         _logger.LogTrace($"Exit UserService.ModifyUser");
-      }
-    }
-
-    public bool DeleteUser(Guid userId, out string reason)
-    {
-      _logger.LogTrace($"Enter UserService.DeleteUser");
-      reason = string.Empty;
-      try
-      {
-        var user = _userManagementRepository.GetUser(userId);
-        if (user == null)
-        {
-          reason = "UserDoesntExist";
-          return false;
-        }
-
-        if (!_userManagementRepository.DeleteUser(userId))
-        {
-          reason = "DatabaseError";
-          return false;
-        }
-
-        return true;
-      }
-      catch (System.Exception e)
-      {
-        _logger.LogError($"Unable to delete user, error: {e}");
-        reason = "Unknown";
-        return false;
-      }
-      finally
-      {
-        _logger.LogTrace($"Exit UserService.DeleteUser");
       }
     }
   }

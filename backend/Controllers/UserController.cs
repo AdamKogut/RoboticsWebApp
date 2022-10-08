@@ -75,6 +75,7 @@ namespace Backend.Controllers
     /// </summary>
     /// <param name="createUserMessage"></param>
     /// <returns>result string</returns>
+    [AllowAnonymous]
     [HttpPost("CreateUser")]
     public IActionResult CreateUser(CreateUserMessage createUserMessage)
     {

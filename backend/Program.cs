@@ -59,6 +59,7 @@ builder.Services.AddAuthorization();
 // User Management
 builder.Services.AddSingleton<IUserManagementRepository, UserManagementRepository>();
 builder.Services.AddSingleton<ITeamService, TeamService>();
+builder.Services.AddSingleton<IUserService, UserService>();
 
 IConfiguration configuration = builder.Configuration;
 var password = configuration["sqldb"];

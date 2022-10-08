@@ -15,12 +15,10 @@ namespace Backend.Interfaces.Repository
     Team GetTeam(Guid teamId);
     Team GetTeam(string name);
     bool ModifyTeam(Guid teamId, Team newInfo);
-    bool AddPermission(Guid teamId, Guid userId, PermissionEnum permissionEnum);
-    bool RemovePermission(Guid teamId, Guid userId, PermissionEnum permissionEnum);
+    bool ApplyPermissions(Guid teamId, Guid userId, List<PermissionEnum> permissionEnum);
     List<PermissionEnum> GetPermissions(Guid teamId, Guid userId);
     bool AddUserToTeam(Guid teamId, Guid userId);
     bool CheckPermission(Guid teamId, Guid userId, PermissionEnum permissionEnum);
-    bool DeletePermission(Guid teamId, Guid userId);
     List<User> GetUsersOnTeam(Guid teamId);
   }
 }

@@ -308,9 +308,9 @@ namespace Backend.Repositories
       }
     }
 
-    public bool AddPermission(Guid teamId, Guid userId, PermissionEnum permissionEnum)
+    public bool ApplyPermissions(Guid teamId, Guid userId, List<PermissionEnum> permissionEnum)
     {
-      _logger.LogTrace("Enter UserManagementRepository.AddPermission");
+      _logger.LogTrace("Enter UserManagementRepository.GetPermissions");
       try
       {
         lock (_permissionLock) lock (_userLock) lock (_teamLock)
@@ -321,54 +321,30 @@ namespace Backend.Repositories
                 var permission = db.Permissions.FirstOrDefault(x => x.TeamId == teamId && x.UserId == userId);
                 if (permission == default)
                 {
-                  return false;
+                  db.Permissions.Add(new Permission
+                  {
+                    TeamId = teamId,
+                    UserId = userId,
+                    Permissions = ConvertPermissionsToInt(permissionEnum)
+                  });
                 }
-                permission.Permissions = 1 << (int)permissionEnum | permission.Permissions;
-                db.SaveChanges();
-              }
-            }
-        return true;
-      }
-      catch (Exception e)
-      {
-        _logger.LogError($"Error occured when adding permission to user. Error: {e}");
-        return false;
-      }
-      finally
-      {
-        _logger.LogTrace("Exit UserManagementRepository.AddPermission");
-      }
-    }
-
-    public bool RemovePermission(Guid teamId, Guid userId, PermissionEnum permissionEnum)
-    {
-      _logger.LogTrace("Enter UserManagementRepository.RemovePermission");
-      try
-      {
-        lock (_permissionLock) lock (_userLock) lock (_teamLock)
-            {
-              using (var scope = _scopeFactory.CreateScope())
-              {
-                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                var permission = db.Permissions.FirstOrDefault(x => x.TeamId == teamId && x.UserId == userId);
-                if (permission == default)
+                else
                 {
-                  return false;
+                  permission.Permissions = ConvertPermissionsToInt(permissionEnum);
                 }
-                permission.Permissions = ~(1 << (int)permissionEnum) & permission.Permissions;
                 db.SaveChanges();
               }
+              return true;
             }
-        return true;
       }
       catch (Exception e)
       {
-        _logger.LogError($"Error occured when removing permission from user. Error: {e}");
+        _logger.LogError($"Error occured when getting permissions for user. Error: {e}");
         return false;
       }
       finally
       {
-        _logger.LogTrace("Exit UserManagementRepository.RemovePermission");
+        _logger.LogTrace("Exit UserManagementRepository.GetPermissions");
       }
     }
 
@@ -391,7 +367,7 @@ namespace Backend.Repositories
                 var returnList = new List<PermissionEnum>();
                 foreach (PermissionEnum curr in Enum.GetValues(typeof(PermissionEnum)))
                 {
-                  if ((permission.Permissions & (1 << ((int)curr - 1))) == 1)
+                  if ((permission.Permissions & (1 << ((int)curr))) == 1)
                   {
                     returnList.Add(curr);
                   }
@@ -494,39 +470,6 @@ namespace Backend.Repositories
       }
     }
 
-    public bool DeletePermission(Guid teamId, Guid userId)
-    {
-      _logger.LogTrace("Enter UserManagementRepository.DeletePermission");
-      try
-      {
-        lock (_permissionLock) lock (_userLock) lock (_teamLock)
-            {
-              using (var scope = _scopeFactory.CreateScope())
-              {
-                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                var permission = db.Permissions.FirstOrDefault(x => x.TeamId == teamId && x.UserId == userId);
-                if (permission == default)
-                {
-                  return false;
-                }
-
-                db.Permissions.Remove(permission);
-
-                return false;
-              }
-            }
-      }
-      catch (Exception e)
-      {
-        _logger.LogError($"Error occured when deleting permissions for user. Error: {e}");
-        return false;
-      }
-      finally
-      {
-        _logger.LogTrace("Exit UserManagementRepository.DeletePermission");
-      }
-    }
-
     public List<User> GetUsersOnTeam(Guid teamId)
     {
       _logger.LogTrace("Enter UserManagementRepository.GetUsersOnTeam");
@@ -552,6 +495,16 @@ namespace Backend.Repositories
       {
         _logger.LogTrace("Exit UserManagementRepository.GetUsersOnTeam");
       }
+    }
+
+    private int ConvertPermissionsToInt(List<PermissionEnum> permissions)
+    {
+      var returnInt = 0;
+      foreach (var permission in permissions)
+      {
+        returnInt |= (1 << ((int)permission));
+      }
+      return returnInt;
     }
   }
 }
