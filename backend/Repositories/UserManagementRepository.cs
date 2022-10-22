@@ -319,12 +319,14 @@ namespace Backend.Repositories
               {
                 var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var permission = db.Permissions.FirstOrDefault(x => x.TeamId == teamId && x.UserId == userId);
-                if (permission == default)
+                var user = db.Users.FirstOrDefault(x => x.Id == userId);
+                var team = db.Teams.FirstOrDefault(x => x.Id == teamId);
+                if (permission == default || user == default || team == default)
                 {
                   db.Permissions.Add(new Permission
                   {
-                    TeamId = teamId,
-                    UserId = userId,
+                    Team = team!,
+                    User = user!,
                     Permissions = ConvertPermissionsToInt(permissionEnum)
                   });
                 }
@@ -450,7 +452,7 @@ namespace Backend.Repositories
                   return false;
                 }
 
-                if ((permission.Permissions & (1 << ((int)permissionEnum - 1))) == 1)
+                if ((permission.Permissions & (1 << ((int)permissionEnum - 1))) > 0)
                 {
                   return true;
                 }

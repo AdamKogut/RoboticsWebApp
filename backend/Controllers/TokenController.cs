@@ -32,11 +32,12 @@ namespace JWTAuth.WebApi.Controllers
       {
         //create claims details based on the user information
         var claims = new[] {
-            new Claim("Id", Guid.NewGuid().ToString()),
-            new Claim(JwtRegisteredClaimNames.Sub, matchingUser.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.Sub, _configuration["Jwt:Subject"]),
             new Claim(JwtRegisteredClaimNames.Email, matchingUser.Email),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-                };
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.Ticks.ToString()),
+            new Claim("UserId", matchingUser.Id.ToString())
+        };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
         var signIn = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -44,7 +45,7 @@ namespace JWTAuth.WebApi.Controllers
             _configuration["Jwt:Issuer"],
             _configuration["Jwt:Audience"],
             claims,
-            expires: DateTime.UtcNow.AddMinutes(10),
+            expires: DateTime.UtcNow.AddMinutes(60),
             signingCredentials: signIn);
 
         return Ok(new JwtSecurityTokenHandler().WriteToken(token));
