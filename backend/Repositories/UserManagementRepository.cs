@@ -1,11 +1,10 @@
 using Backend.Enums;
 using Backend.Interfaces.Repository;
 using Backend.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Repositories
 {
-  //TODO: Force AddUser and AddTeam to error if user with same email exists
-  //TODO: Create UpdateUser and UpdateTeam
   public class UserManagementRepository : IUserManagementRepository
   {
     private IServiceScopeFactory _scopeFactory;
@@ -57,7 +56,7 @@ namespace Backend.Repositories
           using (var scope = _scopeFactory.CreateScope())
           {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            return db.Users.FirstOrDefault(x => x.Id == userId)!;
+            return db.Users.Where(x => x.Id == userId).Include(x => x.Permissions).ThenInclude(x => x.Team).FirstOrDefault()!;
           }
         }
       }
@@ -82,7 +81,7 @@ namespace Backend.Repositories
           using (var scope = _scopeFactory.CreateScope())
           {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            return db.Users.FirstOrDefault(x => x.Email.ToLower() == email.ToLower())!;
+            return db.Users.FirstOrDefault(x => x.Email.ToLower().Equals(email.ToLower()))!;
           }
         }
       }
@@ -129,7 +128,7 @@ namespace Backend.Repositories
       }
     }
 
-    public bool ModifyUser(Guid userId, User newInfo)
+    public bool ModifyUser(Guid userId, User newInfo, bool setFailureInfo = false)
     {
       _logger.LogTrace("Enter UserManagementRepository.ModifyUser");
       try
@@ -149,6 +148,12 @@ namespace Backend.Repositories
             user.LastName = newInfo.LastName;
             user.Email = newInfo.Email;
             user.Password = newInfo.Password;
+
+            if (setFailureInfo)
+            {
+              user.LastFailure = newInfo.LastFailure;
+              user.NumberFailures = newInfo.NumberFailures;
+            }
 
             db.SaveChanges();
           }
@@ -193,19 +198,19 @@ namespace Backend.Repositories
       }
     }
 
-    public Team GetTeam(Guid teamId)
+    public Team GetTeam(Guid teamId, bool getUsersToo)
     {
       _logger.LogTrace("Enter UserManagementRepository.GetTeam");
       try
       {
-        lock (_teamLock)
-        {
-          using (var scope = _scopeFactory.CreateScope())
+        lock (_teamLock) lock (_permissionLock)
           {
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            return db.Teams.FirstOrDefault(x => x.Id == teamId)!;
+            using (var scope = _scopeFactory.CreateScope())
+            {
+              var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+              return db.Teams.Where(x => x.Id == teamId).Include(x => x.Permissions).FirstOrDefault()!;
+            }
           }
-        }
       }
       catch (Exception e)
       {
@@ -369,7 +374,7 @@ namespace Backend.Repositories
                 var returnList = new List<PermissionEnum>();
                 foreach (PermissionEnum curr in Enum.GetValues(typeof(PermissionEnum)))
                 {
-                  if ((permission.Permissions & (1 << ((int)curr))) == 1)
+                  if ((permission.Permissions & (1 << ((int)curr - 1))) > 0)
                   {
                     returnList.Add(curr);
                   }
@@ -482,7 +487,7 @@ namespace Backend.Repositories
               using (var scope = _scopeFactory.CreateScope())
               {
                 var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                var permissions = db.Permissions.Where(x => x.TeamId == teamId);
+                var permissions = db.Permissions.Where(x => x.TeamId == teamId).Include(x => x.User);
 
                 return permissions.Select(x => x.User).ToList();
               }
@@ -499,12 +504,37 @@ namespace Backend.Repositories
       }
     }
 
+    public List<Permission> GetTeamsWithUser(Guid userId)
+    {
+      _logger.LogTrace("Enter UserManagementRepository.GetTeamsWithUser");
+      try
+      {
+        lock (_permissionLock)
+        {
+          using (var scope = _scopeFactory.CreateScope())
+          {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            return db.Permissions.Where(x => x.UserId == userId).ToList();
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        _logger.LogError($"Error occured when getting teams for user. Error: {e}");
+        return new List<Permission>();
+      }
+      finally
+      {
+        _logger.LogTrace("Exit UserManagementRepository.GetTeamsWithUser");
+      }
+    }
+
     private int ConvertPermissionsToInt(List<PermissionEnum> permissions)
     {
       var returnInt = 0;
       foreach (var permission in permissions)
       {
-        returnInt |= (1 << ((int)permission));
+        returnInt |= (1 << ((int)permission - 1));
       }
       return returnInt;
     }

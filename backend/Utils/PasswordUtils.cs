@@ -1,11 +1,5 @@
-using Backend.Interfaces.Repository;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using System.Text;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.Extensions.Hosting;
 using System.Security.Cryptography;
-using System.Text;
 
 namespace Backend.Utils
 {
@@ -14,7 +8,7 @@ namespace Backend.Utils
     private const int SALT_LENGTH = 32;
     private const int HASH_LENGTH = 32;
 
-    public static string GenerateHash(string plainText, string email, byte[] saltBytes = null!)
+    public static string GenerateHash(string plainText, Guid id, byte[] saltBytes = null!)
     {
       if (saltBytes == null)
       {
@@ -24,7 +18,7 @@ namespace Backend.Utils
         rngProvider.GetBytes(saltBytes);
       }
 
-      string key = "C8NC6zGnlH" + email;
+      string key = "C8NC6zGnlH" + id;
 
       var keyBytes = Encoding.UTF8.GetBytes(key);
       var plainTextBytes = Encoding.UTF8.GetBytes(plainText);
@@ -44,12 +38,12 @@ namespace Backend.Utils
       return Convert.ToBase64String(hashAndSalt);
     }
 
-    public static bool VerifyHash(string plainText, string encrypted, string email)
+    public static bool VerifyHash(string plainText, string encrypted, Guid id)
     {
       var hashedTextBytes = Convert.FromBase64String(encrypted);
       var saltBytes = hashedTextBytes.Skip(HASH_LENGTH).ToArray();
 
-      var plainTextHash = GenerateHash(plainText, email, saltBytes);
+      var plainTextHash = GenerateHash(plainText, id, saltBytes);
 
       return encrypted == plainTextHash;
     }

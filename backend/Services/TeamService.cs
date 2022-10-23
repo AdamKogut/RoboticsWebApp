@@ -97,7 +97,7 @@ namespace Backend.Services
         {
           Name = name
         };
-        if (!_userManagementRepo.AddTeam(team))
+        if (_userManagementRepo.GetUser(userId) == default || !_userManagementRepo.AddTeam(team))
         {
           return DatabaseFailure;
         }
@@ -181,7 +181,9 @@ namespace Backend.Services
     {
       _logger.LogTrace($"Enter TeamService.GetTeamInfo");
       var response = new GetTeamInfoResponse();
-      var team = _userManagementRepo.GetTeam(teamId);
+      var getUsersToo = _userManagementRepo.CheckPermission(teamId, userId, PermissionEnum.Admin)
+        || _userManagementRepo.CheckPermission(teamId, userId, PermissionEnum.Owner);
+      var team = _userManagementRepo.GetTeam(teamId, getUsersToo);
       if (team == default)
       {
         return response;
@@ -189,12 +191,11 @@ namespace Backend.Services
 
       response.Name = team.Name;
 
-      if (_userManagementRepo.CheckPermission(teamId, userId, PermissionEnum.Admin)
-        || _userManagementRepo.CheckPermission(teamId, userId, PermissionEnum.Owner))
+      if (getUsersToo)
       {
         foreach (var tempUserId in team.Permissions)
         {
-          var user = _userManagementRepo.GetUser(tempUserId.Id);
+          var user = _userManagementRepo.GetUser(tempUserId.UserId);
           if (user == default)
           {
             continue;
@@ -205,7 +206,7 @@ namespace Backend.Services
             Email = user.Email,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            Permissions = _userManagementRepo.GetPermissions(teamId, tempUserId.Id)
+            Permissions = GetPermissionsFromInt(tempUserId.Permissions)
           });
         }
       }
@@ -246,7 +247,7 @@ namespace Backend.Services
           return IncorrectPermissions;
         }
 
-        var oldTeam = _userManagementRepo.GetTeam(teamId);
+        var oldTeam = _userManagementRepo.GetTeam(teamId, false);
 
         if (!string.Equals(oldTeam.Name, teamName, StringComparison.InvariantCultureIgnoreCase)
           && _userManagementRepo.GetTeam(teamName) != null)
@@ -272,6 +273,19 @@ namespace Backend.Services
       {
         _logger.LogTrace($"Exit TeamService.ModifyTeam");
       }
+    }
+
+    private List<PermissionEnum> GetPermissionsFromInt(int permissionInt)
+    {
+      var returnList = new List<PermissionEnum>();
+      foreach (PermissionEnum curr in Enum.GetValues(typeof(PermissionEnum)))
+      {
+        if ((permissionInt & (1 << ((int)curr - 1))) > 0)
+        {
+          returnList.Add(curr);
+        }
+      }
+      return returnList;
     }
   }
 }

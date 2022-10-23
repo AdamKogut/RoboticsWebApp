@@ -138,12 +138,18 @@ namespace Backend.Controllers
     {
       var userId = GetUserId();
       var user = _userService.GetUserInfo(userId);
-      return new GetUserResponse
+      var userResponse = new GetUserResponse
       {
         FirstName = user.FirstName,
         LastName = user.LastName,
         Email = user.Email
       };
+
+      foreach (var permission in user.Permissions)
+      {
+        userResponse.TeamDictionary.Add(permission.Team.Id, permission.Team.Name);
+      }
+      return userResponse;
     }
 
     /// <summary>
@@ -157,26 +163,6 @@ namespace Backend.Controllers
       var userId = GetUserId();
       return Ok(_teamService.InviteToTeam(inviteMessage.TeamId, userId,
         inviteMessage.Email, inviteMessage.Permissions));
-    }
-
-    /// <summary>
-    ///   POST /api/v1/User/Login
-    ///   TODO: on frontend save JWT in localstorage, to logout remove it from that
-    /// </summary>
-    /// <param name="loginMessage"></param>
-    /// <returns></returns>
-    [AllowAnonymous]
-    [HttpPost("Login")]
-    public IActionResult Login(LoginMessage loginMessage)
-    {
-      var result = _userService.Authenticate(loginMessage.Email, loginMessage.Password);
-
-      if (string.IsNullOrEmpty(result))
-      {
-        return Unauthorized();
-      }
-
-      return Ok(result);
     }
 
     /// <summary>

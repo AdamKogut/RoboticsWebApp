@@ -9,10 +9,10 @@ namespace Backend.Interfaces.Repository
     bool DeleteUser(Guid userId);
     User GetUser(Guid userId);
     User GetUser(string email);
-    bool ModifyUser(Guid userId, User newInfo);
+    bool ModifyUser(Guid userId, User newInfo, bool setFailureInfo = false);
     bool AddTeam(Team team);
     bool DeleteTeam(Guid teamId);
-    Team GetTeam(Guid teamId);
+    Team GetTeam(Guid teamId, bool getUsersToo);
     Team GetTeam(string name);
     bool ModifyTeam(Guid teamId, Team newInfo);
     bool ApplyPermissions(Guid teamId, Guid userId, List<PermissionEnum> permissionEnum);
@@ -20,5 +20,6 @@ namespace Backend.Interfaces.Repository
     bool AddUserToTeam(Guid teamId, Guid userId);
     bool CheckPermission(Guid teamId, Guid userId, PermissionEnum permissionEnum);
     List<User> GetUsersOnTeam(Guid teamId);
+    List<Permission> GetTeamsWithUser(Guid userId);
   }
 }

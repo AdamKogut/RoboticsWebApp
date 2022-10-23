@@ -2,6 +2,7 @@ using Backend.Interfaces.Repository;
 using Backend.Interfaces.Services;
 using Backend.Models;
 using Backend.Utils;
+using Backend.Enums;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -22,75 +23,6 @@ namespace Backend.Services
       _logger = logger;
       _userManagementRepository = userManagementRepository;
       _configuration = configuration;
-    }
-
-    public string Authenticate(string email, string password)
-    {
-      _logger.LogTrace($"Enter UserService.Authenticate");
-      try
-      {
-        var matchingUser = _userManagementRepository.GetUser(email);
-        if (matchingUser != null && PasswordUtils.VerifyHash(password, matchingUser.Password, email))
-        {
-          matchingUser.NumberFailures = 0;
-
-          var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]);
-          var tokenDescriptor = new SecurityTokenDescriptor
-          {
-            Subject = new ClaimsIdentity(new[]
-              {
-                new Claim("Id", Guid.NewGuid().ToString()),
-                new Claim(JwtRegisteredClaimNames.Sub, matchingUser.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, matchingUser.Email),
-                new Claim(JwtRegisteredClaimNames.Jti,
-                Guid.NewGuid().ToString())
-             }),
-            Expires = DateTime.UtcNow.AddMinutes(5),
-            Issuer = _configuration["Jwt:Issuer"],
-            Audience = _configuration["Jwt:Audience"],
-            SigningCredentials = new SigningCredentials
-              (new SymmetricSecurityKey(key),
-              SecurityAlgorithms.HmacSha512Signature)
-          };
-          var tokenHandler = new JwtSecurityTokenHandler();
-          var token = tokenHandler.CreateToken(tokenDescriptor);
-          var jwtToken = tokenHandler.WriteToken(token);
-          var stringToken = tokenHandler.WriteToken(token);
-
-
-          // var claims = new[] {
-          //             new Claim(JwtRegisteredClaimNames.Sub, _configuration["Jwt:Subject"]),
-          //             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-          //             new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.Ticks.ToString()),
-          //             new Claim("UserId", matchingUser.Id.ToString())
-          //         };
-
-          // var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-          // var signIn = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-          // var token = new JwtSecurityToken(
-          //     _configuration["Jwt:Issuer"],
-          //     _configuration["Jwt:Audience"],
-          //     claims,
-          //     expires: DateTime.UtcNow.AddMinutes(60),
-          //     signingCredentials: signIn);
-
-          _userManagementRepository.ModifyUser(matchingUser.Id, matchingUser);
-          return stringToken;
-
-          // return new JwtSecurityTokenHandler().WriteToken(token);
-        }
-
-        return string.Empty;
-      }
-      catch (System.Exception e)
-      {
-        _logger.LogError($"Unable to authenticate, error: {e}");
-        return string.Empty;
-      }
-      finally
-      {
-        _logger.LogTrace($"Exit UserService.Authenticate");
-      }
     }
 
     public string ChangePassword(string email)
@@ -134,7 +66,7 @@ namespace Backend.Services
           FirstName = firstName,
           LastName = lastName,
           Email = email,
-          Password = PasswordUtils.GenerateHash(password, email),
+          Password = string.Empty,
           NumberFailures = 0,
           LastFailure = DateTime.MinValue
         };
@@ -142,6 +74,11 @@ namespace Backend.Services
         {
           return DatabaseFailure;
         }
+
+        user = _userManagementRepository.GetUser(email);
+        user.Password = PasswordUtils.GenerateHash(password, user.Id);
+
+        _userManagementRepository.ModifyUser(user.Id, user);
 
         return Success;
       }
@@ -165,6 +102,15 @@ namespace Backend.Services
         if (user == null)
         {
           return Unknown;
+        }
+
+        var permissions = _userManagementRepository.GetTeamsWithUser(userId);
+        foreach (var permission in permissions)
+        {
+          if (((int)PermissionEnum.Owner & permission.Permissions) > 0)
+          {
+            _userManagementRepository.DeleteTeam(permission.TeamId);
+          }
         }
 
         if (!_userManagementRepository.DeleteUser(userId))
@@ -194,7 +140,7 @@ namespace Backend.Services
       }
       catch (System.Exception e)
       {
-        _logger.LogError($"Unable to modify user, error: {e}");
+        _logger.LogError($"Unable to get user, error: {e}");
         return new User();
       }
       finally
@@ -214,7 +160,7 @@ namespace Backend.Services
           return Unknown;
         }
 
-        if (user.Email.ToLower() != email.ToLower() && _userManagementRepository.GetUser(user.Email) != null)
+        if (user.Email.ToLower() != email.ToLower() && _userManagementRepository.GetUser(email) != null)
         {
           return EmailAlreadyExists;
         }
@@ -224,7 +170,7 @@ namespace Backend.Services
         user.Email = email;
         if (password != string.Empty)
         {
-          user.Password = PasswordUtils.GenerateHash(password, email);
+          user.Password = PasswordUtils.GenerateHash(password, user.Id);
         }
 
         if (!_userManagementRepository.ModifyUser(userId, user))
