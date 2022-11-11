@@ -3,6 +3,7 @@ using Backend.Interfaces.Repository;
 using Backend.Interfaces.Services;
 using Backend.Messages.UserManagement;
 using Backend.Models;
+using Backend.Utils;
 
 using static Backend.Constants.ControllerFailureConstants;
 
@@ -13,12 +14,18 @@ namespace Backend.Services
     private readonly ILogger<ITeamService> _logger;
     private readonly IUserManagementRepository _userManagementRepo;
     private readonly IUserService _userService;
+    private readonly IConfiguration _configuration;
 
-    public TeamService(ILogger<ITeamService> logger, IUserManagementRepository userManagementRepo, IUserService userService)
+    public TeamService(
+      ILogger<ITeamService> logger,
+      IUserManagementRepository userManagementRepo,
+      IUserService userService,
+      IConfiguration configuration)
     {
       _logger = logger;
       _userManagementRepo = userManagementRepo;
       _userService = userService;
+      _configuration = configuration;
     }
 
     public string AcceptInvite(Guid teamId, Guid userId, List<PermissionEnum> permissions)
@@ -167,8 +174,18 @@ namespace Backend.Services
     public GetInviteInfoResponse GetInviteInfo(string encryptedString)
     {
       _logger.LogTrace($"Enter TeamService.GetInviteInfo");
-      // TODO: Decrypt invite info
-      throw new NotImplementedException();
+      var response = new GetInviteInfoResponse();
+      var inviteInfo = PasswordUtils.AesDecrypt(encryptedString, _configuration).Split('\n');
+      response.Email = inviteInfo[1];
+      response.TeamId = new Guid(inviteInfo[0]);
+
+      foreach (var permissionString in inviteInfo[2].Split(';'))
+      {
+        var permissionInt = int.Parse(permissionString);
+        response.Permissions.Add((PermissionEnum)permissionInt);
+      }
+
+      return response;
     }
 
     public List<PermissionEnum> GetPermissions(Guid userId, Guid teamId)
@@ -231,10 +248,22 @@ namespace Backend.Services
         user = _userManagementRepo.GetUser(email);
       }
 
-      // TODO: encrypt
-      // TODO: set up sending email
-      throw new NotImplementedException();
+      var stringToEncrypt = $"{teamId}\n{email}\n";
+      foreach (var permission in permissions)
+      {
+        stringToEncrypt += $"{(int)permission};";
+      }
+
+      stringToEncrypt = stringToEncrypt.Substring(0, stringToEncrypt.Length - 1);
+      var encrypted = PasswordUtils.AesEncrypt(stringToEncrypt, _configuration);
+
+      if (!_userManagementRepo.GetPermissions(teamId, user.Id).Any())
+      {
+        // TODO: send email
+      }
+
       _logger.LogTrace($"Exit TeamService.InviteToTeam");
+      return encrypted;
     }
 
     public string ModifyTeam(Guid teamId, Guid userId, string teamName)
